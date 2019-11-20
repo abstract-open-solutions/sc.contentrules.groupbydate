@@ -17,14 +17,14 @@
     <browser:page
       for="plone.app.contentrules.browser.interfaces.IRuleActionAdding"
       name="sc.contentrules.actions.groupbydate"
-      class=".actions.groupbydate.GroupByDateAddForm"
+      class=".actions.groupbydate.GroupByDateAddFormView"
       permission="cmf.ManagePortal"
       />
 
     <browser:page
       for="sc.contentrules.groupbydate.interfaces.IGroupByDateAction"
       name="edit"
-      class=".actions.groupbydate.GroupByDateEditForm"
+      class=".actions.groupbydate.GroupByDateEditFormView"
       permission="cmf.ManagePortal"
       />
 

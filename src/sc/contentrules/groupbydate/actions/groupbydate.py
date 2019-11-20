@@ -3,9 +3,9 @@ from Acquisition import aq_parent
 from DateTime import DateTime
 from OFS.SimpleItem import SimpleItem
 from plone.app.contentrules.actions.move import MoveActionExecutor
-from plone.app.contentrules.browser.formhelper import AddForm
-from plone.app.contentrules.browser.formhelper import EditForm
-from plone.app.form.widgets.uberselectionwidget import UberSelectionWidget
+from plone.app.contentrules.browser.formhelper import ContentRuleFormWrapper
+from plone.app.contentrules.actions import ActionAddForm
+from plone.app.contentrules.actions import ActionEditForm
 from plone.contentrules.engine.interfaces import IRuleExecutor
 from plone.contentrules.rule.interfaces import IExecutable
 from plone.contentrules.rule.interfaces import IRuleElementData
@@ -20,6 +20,7 @@ from zope.formlib import form
 from zope.interface import implements
 from zope.interface import Interface
 from zope.lifecycleevent import ObjectAddedEvent
+from plone.app.uuid.utils import uuidToObject
 
 
 class GroupByDateAction(SimpleItem):
@@ -68,7 +69,6 @@ class GroupByDateActionExecutor(MoveActionExecutor):
 
         base_folder = self.element.base_folder
         structure = self.element.structure
-
         folder = self._base_folder(str(base_folder), obj)
 
         if folder is None:
@@ -108,49 +108,7 @@ class GroupByDateActionExecutor(MoveActionExecutor):
         # Large portions of this code came from Products.ATContentTypes
         # TODO: a package to deal with this kind of stuff (string to object?)
         # sanitize a bit: you never know, with all those win users out there
-        relPath = base_folder.replace('\\', '/')
-        if not relPath:
-            return self._portal
-        if relPath[0] == '/':
-            # someone didn't enter a relative path.
-            # let's go with it
-            path = relPath.split('/')[1:]
-        else:
-            folders = relPath.split('/')
-
-            # set the path to the object path
-            path = self._relPathToPortal(aq_parent(obj))
-
-            # now construct an aboslute path based on the relative custom path
-            # eat away from 'path' whenever we encounter a '..'
-            # in the relative path apend all other elements other than ..
-            for folder in folders:
-                if folder == '..':
-                    # chop off one level from path
-                    if path == []:
-                        # can't chop off more
-                        # just return this path and leave the loop
-                        break
-                    else:
-                        path = path[:-1]
-                elif folder == '.':
-                    # don't really need this but for being complete
-                    # strictly speaking some user may use a . aswell
-                    pass  # do nothing
-                else:
-                    path.append(folder)
-
-        if not (path == []):
-            # As we will traverse from portal, there is no need to
-            # have its path in the way
-            path = '/'.join(path)
-            try:
-                baseFolder = self._portal.unrestrictedTraverse(path)
-            except (AttributeError, KeyError):
-                baseFolder = None
-        else:
-            baseFolder = self._portal
-        return baseFolder
+        return uuidToObject(base_folder)
 
     def _createFolderStructure(self, folder, structure='ymd', date=None):
         """ Create a folder structure and then return our innermost folder
@@ -170,7 +128,7 @@ class GroupByDateActionExecutor(MoveActionExecutor):
         # executed for the newly created folders
         executor = IRuleExecutor(self.context, None)
         for fId in folderStructure:
-            if fId not in folder.objectIds():
+            if not fId in folder.objectIds():
                 _createObjectByType(container, folder, id=fId,
                                     title=fId, description=fId)
                 folder = folder[fId]
@@ -184,27 +142,36 @@ class GroupByDateActionExecutor(MoveActionExecutor):
         return folder
 
 
-class GroupByDateAddForm(AddForm):
+class GroupByDateAddForm(ActionAddForm):
     """
     An add form for the group by date action
     """
-    form_fields = form.FormFields(IGroupByDateAction)
+    schema = IGroupByDateAction
     label = _(u"Add group by date folder action")
     description = _(u"A content rules action to move an item to a folder"
                     u" structure.")
+    Type = GroupByDateAction
 
-    def create(self, data):
-        a = GroupByDateAction()
-        form.applyChanges(a, self.form_fields, data)
-        return a
+    # def create(self, data):
+    #     a = GroupByDateAction()
+    #     form.applyChanges(a, self.schema, data)
+    #     return a
 
 
-class GroupByDateEditForm(EditForm):
+class GroupByDateAddFormView(ContentRuleFormWrapper):
+    form = GroupByDateAddForm
+
+
+class GroupByDateEditForm(ActionEditForm):
     """
     An edit form for the group by date action
     """
-    form_fields = form.FormFields(IGroupByDateAction)
-    form_fields['base_folder'].custom_widget = UberSelectionWidget
+    schema = IGroupByDateAction
     label = _(u"Edit group by date action")
     description = _(u"A content rules action to move an item to a folder"
                     u" structure.")
+    form_name = _(u'Configure element')
+
+
+class GroupByDateEditFormView(ContentRuleFormWrapper):
+    form = GroupByDateEditForm
